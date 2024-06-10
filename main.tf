@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 4.16"
     }
+    http = {
+      source  = "hashicorp/http"
+      version = ">= 2.0.0"
+    }
   }
   required_version = ">= 1.2.0"
 }
@@ -13,11 +17,21 @@ provider "aws" {
   shared_credentials_files = ["/Users/matt/.aws/credentials"]
 }
 
+
+data "http" "my_ip" {
+  url = "https://ipinfo.io/ip"
+}
+
+locals {
+  my_ip_cidr = "${data.http.my_ip.body}/32"
+}
+
 resource "aws_instance" "app_server" {
   ami           = "ami-0cf2b4e024cdb6960"
   instance_type = "t2.medium"
   key_name      = aws_key_pair.deployer.key_name
   associate_public_ip_address = true
+  vpc_security_group_ids = [aws_security_group.Minecraft_Server_SG.id]
 
   tags = {
     Name = var.instance_name
@@ -36,19 +50,19 @@ resource "aws_security_group" "Minecraft_Server_SG" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["73.96.225.3/32", "128.193.0.0/16"]
+    cidr_blocks = [local.my_ip_cidr]
   }
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["73.96.225.3/32", "128.193.0.0/16"]
+    cidr_blocks = [local.my_ip_cidr]
   }
   ingress {
     from_port   = 25565
     to_port     = 25565
     protocol    = "tcp"
-    cidr_blocks = ["73.96.225.3/32", "128.193.0.0/16"]
+    cidr_blocks = [local.my_ip_cidr]
   }
 
   egress {
